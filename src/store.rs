@@ -16,14 +16,17 @@ fn stdin_to_lines() -> Vec<String> {
 }
 
 pub fn append_stdin<'a>() -> Option<String> {
-    let reg_fname = get_filename();
-    let mut reglines = read_lines(&reg_fname);
     let mut stdin = stdin_to_lines();
-    reglines.append(&mut stdin);
-    let lines = &reglines.as_slice()[reglines.len()-std::cmp::min(NREGS, reglines.len())..];
-    std::fs::write(&reg_fname, lines.join("\n")).expect("could not write regfile");
-    if let Some(line) = lines.last() {
-        return std::option::Option::Some(line.to_owned());
+    if stdin.len() > 0 {
+        println!("more lines");
+        let reg_fname = get_filename();
+        let mut reglines = read_lines(&reg_fname);
+        reglines.append(&mut stdin);
+        let lines = &reglines.as_slice()[reglines.len()-std::cmp::min(NREGS, reglines.len())..];
+        std::fs::write(&reg_fname, lines.join("\n")).expect("could not write regfile");
+        if let Some(line) = lines.last() {
+            return Some(line.to_owned());
+        } else { return None; }
     } else {
         return None;
     }
