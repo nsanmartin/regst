@@ -4,6 +4,7 @@ use clipboard::ClipboardProvider;
 use clipboard::ClipboardContext;
 use std::env;
 use clap::{App, Arg};
+use std::process::Command;
 
 mod store;
 
@@ -20,7 +21,7 @@ mod store;
 // 9. The black hole register "_
 // 10. Last search pattern register "/
 
-static REGS: &str= "\"0123456789abcdefghijklmnopqrstuvwxyz*+";
+static REGS: &str= "0123456789abcdefghijklmnopqrstuvwxyz*+";
 
 fn main() {
     
@@ -29,35 +30,42 @@ fn main() {
 
         let matches = App::new("reg")
             .arg(Arg::new("print").short('p').long("print"))
+            .arg(Arg::new("regfile").short('f').long("regfile"))
             .arg(Arg::new("reg"))
             .get_matches();
         
-        if matches.is_present("print") {
-            store::get_regs().iter().rev().zip(REGS.chars()).for_each(|(r,c)| println!("\"{} {}",c, r));
+        if matches.is_present("regfile") {
+            let fname = store::get_filename();
+            println!("{}", fname);
+            Command::new("vi").arg(fname).status().expect("Something went wrong.") ;
+
+        } else if matches.is_present("print") {
+            print_regfile()
         }
 
         if let Some(reg) = matches.value_of("reg") {
-            if reg.len() != 1 {
-                println!("Bad reg: {}", reg);
-                panic!("reg should be a char, not '{}'", reg);
-            }
-            if let Some(idx) = REGS.find(reg) {
-                if let Some(line) = store::get_regs().get(idx) {
-                    let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
-                    ctx.set_contents(line.to_owned()).unwrap();
-                } else {
-                    println!("Nothing in register {}", reg);
-                }
-            } else {
-                println!("Bad reg: {}", reg);
-                panic!("reg should be a char in {}, not '{}'", REGS, reg);
-            }
 
+            let regs = store::get_regs();
+            let lines: Vec<String> = reg.chars().map(|c| REGS.find(c).expect(&format!("bad reg: '{}'", c)))
+                .map(|idx| regs.get(regs.len() - idx - 1).expect(&format!("index out of range, this should not happen")).to_owned())
+                .collect();
+
+            if lines.len() > 0 {
+                let ln = lines.join(" ");
+                let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
+                ctx.set_contents(ln.to_owned()).unwrap();
+                println!("{}", ln);
+            }
         }
     } else {
         if let Some(line) = store::append_stdin() {
             let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
             ctx.set_contents(line.to_owned()).unwrap();
+            print_regfile();
         }
     }
+}
+
+fn print_regfile() {
+    store::get_regs().iter().rev().zip(REGS.chars()).for_each(|(r,c)| println!("\"{} {}",c, r));
 }
